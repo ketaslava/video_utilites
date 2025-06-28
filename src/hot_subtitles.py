@@ -4,16 +4,13 @@ import os
 import subprocess
 import whisper
 
-
 # Dependencies
 # sudo apt update
 # sudo apt install ffmpeg python3-pip
 # pip3 install --upgrade openai-whisper
 
-
 # Usage
 # $ python3 hot_subtitles.py path/to/video.mp4
-
 
 # Configuration
 MODEL_SIZE = "small"    # options: tiny, base, small, medium, large
@@ -91,20 +88,24 @@ def burn_subtitles(input_video, ass_file, output_video):
     subprocess.run(cmd, check=True)
 
 
-def find_next_output():
+def find_next_output(input_path):
     """
-    Find next available output filename: output1.mp4, output2.mp4, etc.
+    Generate a non-colliding output filename in the same directory as input
     """
-    i = 1
+    directory = os.path.dirname(input_path) or "."
+    base_name = os.path.splitext(os.path.basename(input_path))[0]
+    i = 0
     while True:
-        name = f"output{i}.mp4"
-        if not os.path.exists(name):
-            return name
+        suffix = f"{i}" if i > 0 else ""
+        filename = f"{base_name}_subtitled{suffix}.mp4"
+        output_path = os.path.join(directory, filename)
+        if not os.path.exists(output_path):
+            return output_path
         i += 1
 
 
 def main():
-    # set up argument parser
+    # Parse command-line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("input", help="Path to input MP4 video")
     parser.add_argument("-m", "--model", default=MODEL_SIZE,
@@ -115,27 +116,27 @@ def main():
     parser.add_argument("-l", "--language", default=LANGUAGE, choices=["en","ru"], help="Transcription language")
     args = parser.parse_args()
 
-    # get video resolution to match ASS header
+    # Determine video resolution for correct subtitle placement
     width, height = get_video_resolution(args.input)
 
-    # define input, ass, and output paths
+    # Prepare ASS file path and safe output file path
     base, _ = os.path.splitext(args.input)
     ass_path = f"{base}.ass"
-    output_path = find_next_output()
+    output_path = find_next_output(args.input)
 
-    # load Whisper model
+    # Load Whisper model
     model = whisper.load_model(args.model, device=args.device)
 
-    # transcribe with word timestamps in selected language
+    # Transcribe video with word-level timestamps
     result = model.transcribe(args.input, language=args.language, word_timestamps=True)
 
-    # write ASS using video resolution, font size, margin
+    # Write subtitles to ASS file
     write_ass(result["segments"], ass_path, args.size, args.margin_v, width, height)
 
-    # burn subtitles into video
+    # Burn subtitles into video using ffmpeg
     burn_subtitles(args.input, ass_path, output_path)
 
-    # output filename notification
+    # Notify about saved output
     print(f"Saved: {output_path}")
 
 
