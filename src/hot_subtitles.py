@@ -13,11 +13,12 @@ import whisper
 # $ python3 hot_subtitles.py path/to/video.mp4
 
 # Configuration
-MODEL_SIZE = "small"    # options: tiny, base, small, medium, large
-LANGUAGE = "en"        # options: en, ru
-DEVICE = "cpu"         # options: cpu, cuda
-FONT_SIZE_DEFAULT = 128   # default font size in points
-MARGIN_V_DEFAULT = 1280   # default vertical margin in pixels
+IS_GENERATE_TRANSCRIBTION = True	# options: True, False
+MODEL_SIZE = "small"	# options: tiny, base, small, medium, large
+LANGUAGE = "en"			# options: en, ru
+DEVICE = "cpu"			# options: cpu, cuda
+FONT_SIZE_DEFAULT = 56	# default font size in points
+MARGIN_V_DEFAULT = 960	# default vertical margin in pixels
 
 
 def get_video_resolution(input_video):
@@ -105,39 +106,40 @@ def find_next_output(input_path):
 
 
 def main():
-    # Parse command-line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("input", help="Path to input MP4 video")
-    parser.add_argument("-m", "--model", default=MODEL_SIZE,
-                        choices=["tiny","base","small","medium","large"], help="Whisper model size")
-    parser.add_argument("--device", choices=["cpu","cuda"], default=DEVICE, help="Device for inference")
-    parser.add_argument("-s", "--size", type=int, default=FONT_SIZE_DEFAULT, help="Subtitle font size")
-    parser.add_argument("-v", "--margin_v", type=int, default=MARGIN_V_DEFAULT, help="Vertical subtitle margin")
-    parser.add_argument("-l", "--language", default=LANGUAGE, choices=["en","ru"], help="Transcription language")
-    args = parser.parse_args()
+	# Parse command-line arguments
+	parser = argparse.ArgumentParser()
+	parser.add_argument("input", help="Path to input MP4 video")
+	parser.add_argument("-m", "--model", default=MODEL_SIZE,
+			choices=["tiny","base","small","medium","large"], help="Whisper model size")
+	parser.add_argument("--device", choices=["cpu","cuda"], default=DEVICE, help="Device for inference")
+	parser.add_argument("-s", "--size", type=int, default=FONT_SIZE_DEFAULT, help="Subtitle font size")
+	parser.add_argument("-v", "--margin_v", type=int, default=MARGIN_V_DEFAULT, help="Vertical subtitle margin")
+	parser.add_argument("-l", "--language", default=LANGUAGE, choices=["en","ru"], help="Transcription language")
+	args = parser.parse_args()
 
-    # Determine video resolution for correct subtitle placement
-    width, height = get_video_resolution(args.input)
+	# Determine video resolution for correct subtitle placement
+	width, height = get_video_resolution(args.input)
 
-    # Prepare ASS file path and safe output file path
-    base, _ = os.path.splitext(args.input)
-    ass_path = f"{base}.ass"
-    output_path = find_next_output(args.input)
+	# Prepare ASS file path and safe output file path
+	base, _ = os.path.splitext(args.input)
+	ass_path = f"{base}.ass"
+	output_path = find_next_output(args.input)
 
-    # Load Whisper model
-    model = whisper.load_model(args.model, device=args.device)
+	if (IS_GENERATE_TRANSCRIBTION):
+		# Load Whisper model
+		model = whisper.load_model(args.model, device=args.device)
 
-    # Transcribe video with word-level timestamps
-    result = model.transcribe(args.input, language=args.language, word_timestamps=True)
+		# Transcribe video with word-level timestamps
+		result = model.transcribe(args.input, language=args.language, word_timestamps=True)
 
-    # Write subtitles to ASS file
-    write_ass(result["segments"], ass_path, args.size, args.margin_v, width, height)
+		# Write subtitles to ASS file
+		write_ass(result["segments"], ass_path, args.size, args.margin_v, width, height)
 
-    # Burn subtitles into video using ffmpeg
-    burn_subtitles(args.input, ass_path, output_path)
+	# Burn subtitles into video using ffmpeg
+	burn_subtitles(args.input, ass_path, output_path)
 
-    # Notify about saved output
-    print(f"Saved: {output_path}")
+	# Notify about saved output
+	print(f"Saved: {output_path}")
 
 
 if __name__ == "__main__":
